@@ -1,7 +1,9 @@
 export type Responsible = 'Danilo Martins' | 'Bruna';
+export type TransactionType = 'Entrada' | 'Sa\u00edda';
 
 export type FlowStep =
   | 'awaiting-responsible'
+  | 'awaiting-type'
   | 'awaiting-category'
   | 'awaiting-value'
   | 'awaiting-value-edit'
@@ -11,7 +13,7 @@ export type FlowStep =
 
 export type Expense = {
   date: string;
-  type: 'Sa\u00edda';
+  type: TransactionType;
   category: string;
   description: string;
   responsible?: Responsible;

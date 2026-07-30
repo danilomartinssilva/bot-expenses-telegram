@@ -17,7 +17,7 @@ import {
   updateSession,
   clearSession,
 } from './session/pendingExpenses';
-import type { Expense } from './types';
+import type { Expense, TransactionType } from './types';
 
 const bot = new Telegraf(telegramBotToken);
 
@@ -41,6 +41,13 @@ function responsibleKeyboard() {
       Markup.button.callback(responsible, `responsible:${responsible}`),
     ])
   );
+}
+
+function typeKeyboard() {
+  return Markup.inlineKeyboard([
+    Markup.button.callback('Entrada', 'type:Entrada'),
+    Markup.button.callback('Sa\u00edda', 'type:Sa\u00edda'),
+  ]);
 }
 
 function categoryKeyboard() {
@@ -97,10 +104,11 @@ bot.help((ctx) => {
     'Como usar:',
     '1. Envie uma imagem/print da despesa.',
     '2. Escolha o respons\u00e1vel.',
-    '3. Confirme ou altere a categoria.',
-    '4. Confirme ou edite o valor.',
-    '5. Confirme ou edite a descri\u00e7\u00e3o.',
-    '6. Confirme o lan\u00e7amento na planilha.',
+    '3. Escolha se \u00e9 Entrada ou Sa\u00edda.',
+    '4. Confirme ou altere a categoria.',
+    '5. Confirme ou edite o valor.',
+    '6. Confirme ou edite a descri\u00e7\u00e3o.',
+    '7. Confirme o lan\u00e7amento na planilha.',
     '',
     'Comandos:',
     '/saldo - consultar saldo do m\u00eas atual',
@@ -153,13 +161,38 @@ bot.action(/^responsible:(.+)$/, async (ctx) => {
 
   updateSession(userId, {
     expense: updatedExpense,
+    step: 'awaiting-type',
+  });
+
+  await ctx.answerCbQuery();
+
+  return ctx.reply(
+    `Respons\u00e1vel: ${responsible}\n\nEsse lan\u00e7amento \u00e9 uma entrada ou sa\u00edda?`,
+    typeKeyboard()
+  );
+});
+
+bot.action(/^type:(Entrada|Sa\u00edda)$/, async (ctx) => {
+  const userId = ctx.from.id;
+  const session = getSession(userId);
+
+  if (!session || session.step !== 'awaiting-type') {
+    await ctx.answerCbQuery();
+    return ctx.reply('N\u00e3o encontrei uma despesa pendente. Envie o print novamente.');
+  }
+
+  const type = ctx.match[1] as TransactionType;
+  const updatedExpense: Expense = { ...session.expense, type };
+
+  updateSession(userId, {
+    expense: updatedExpense,
     step: 'awaiting-category',
   });
 
   await ctx.answerCbQuery();
 
   return ctx.reply(
-    `Respons\u00e1vel: ${responsible}\n\nCategoria detectada: ${updatedExpense.category}\n\nConfirme ou escolha uma categoria:`,
+    `Tipo: ${type}\n\nCategoria detectada: ${updatedExpense.category}\n\nConfirme ou escolha uma categoria:`,
     categoryKeyboard()
   );
 });
