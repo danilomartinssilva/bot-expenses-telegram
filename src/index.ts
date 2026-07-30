@@ -85,7 +85,9 @@ bot.start((ctx) => {
   return ctx.reply([
     'Envie um print da notifica\u00e7\u00e3o de compra para eu tentar lan\u00e7ar a despesa na planilha.',
     '',
-    'Depois da leitura, vou perguntar o respons\u00e1vel, a categoria, o valor e a descri\u00e7\u00e3o antes de salvar.',
+    'Comandos dispon\u00edveis:',
+    '/saldo - consultar saldo do m\u00eas atual',
+    '/help - instru\u00e7\u00f5es detalhadas',
   ].join('\n'));
 });
 
@@ -99,7 +101,9 @@ bot.help((ctx) => {
     '5. Confirme ou edite a descri\u00e7\u00e3o.',
     '6. Confirme o lan\u00e7amento na planilha.',
     '',
-    'A despesa ser\u00e1 salva na aba do m\u00eas atual.',
+    'Comandos:',
+    '/saldo - consultar saldo do m\u00eas atual',
+    '/help - estas instru\u00e7\u00f5es',
   ].join('\n'));
 });
 
@@ -279,6 +283,23 @@ bot.action('expense:save', async (ctx) => {
     await ctx.answerCbQuery();
     const message = error instanceof Error ? error.message : 'N\u00e3o consegui salvar a despesa no Google Sheets.';
     return ctx.reply(message);
+  }
+});
+
+bot.command('saldo', async (ctx) => {
+  const monthSheetName = getCurrentMonthSheetName();
+
+  try {
+    const balance = await getMonthlyBalance(monthSheetName);
+
+    if (balance === null) {
+      return ctx.reply(`N\u00e3o consegui localizar o saldo na aba ${monthSheetName}.`);
+    }
+
+    return ctx.reply(formatBalanceMessage(balance));
+  } catch (error) {
+    console.error(error);
+    return ctx.reply('N\u00e3o consegui buscar o saldo do m\u00eas.');
   }
 });
 

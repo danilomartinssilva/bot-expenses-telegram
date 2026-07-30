@@ -19,6 +19,12 @@ export async function sheetExists(sheetName: string): Promise<boolean> {
   return (response.data.sheets ?? []).some((sheet) => sheet.properties?.title === sheetName);
 }
 
+const FIRST_EXPENSE_ROW = 4;
+
+function isEmptyRow(row: unknown[]): boolean {
+  return row.every((cell) => cell === undefined || cell === null || String(cell).trim() === '');
+}
+
 export async function appendExpense(sheetName: string, expense: Expense): Promise<void> {
   const exists = await sheetExists(sheetName);
 
@@ -38,11 +44,22 @@ export async function appendExpense(sheetName: string, expense: Expense): Promis
     expense.paidOrReceived,
   ]];
 
-  await sheets.spreadsheets.values.append({
+  const existing = await sheets.spreadsheets.values.get({
     spreadsheetId: googleSheetId,
-    range: `'${sheetName}'!A:H`,
+    range: `'${sheetName}'!A${FIRST_EXPENSE_ROW}:H`,
+    valueRenderOption: 'FORMATTED_VALUE',
+  });
+
+  const existingRows = existing.data.values ?? [];
+  const emptyIndex = existingRows.findIndex((row) => isEmptyRow(row));
+  const targetRow = emptyIndex >= 0
+    ? FIRST_EXPENSE_ROW + emptyIndex
+    : FIRST_EXPENSE_ROW + existingRows.length;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: googleSheetId,
+    range: `'${sheetName}'!A${targetRow}:H${targetRow}`,
     valueInputOption: 'USER_ENTERED',
-    insertDataOption: 'INSERT_ROWS',
     requestBody: { values },
   });
 }

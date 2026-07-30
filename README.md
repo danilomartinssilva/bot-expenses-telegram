@@ -37,3 +37,4 @@ docker compose up --build
 ```text
 Data | Tipo | Categoria | Descrição | Responsável | Valor (R$) | Essencial? | Pago/Recebido?
 ```
+# bot-expenses-telegram
