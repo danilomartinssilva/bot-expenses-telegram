@@ -1,3 +1,4 @@
+import http from 'http';
 import { Telegraf, Markup } from 'telegraf';
 import { telegramBotToken, responsibleOptions } from './config';
 import { CATEGORIES } from './constants/categories';
@@ -402,22 +403,50 @@ bot.catch((error: unknown) => {
 const WEBHOOK_DOMAIN = process.env.RENDER_EXTERNAL_URL || process.env.WEBHOOK_DOMAIN;
 const PORT = Number(process.env.PORT) || 10000;
 
-(async () => {
-  if (WEBHOOK_DOMAIN) {
-    const url = new URL(WEBHOOK_DOMAIN);
-    await bot.launch({
-      webhook: {
-        domain: url.hostname,
-        hookPath: '/webhook',
-        port: PORT,
-      },
-    });
-    console.log(`Bot started via webhook: ${WEBHOOK_DOMAIN}/webhook`);
-  } else {
+if (WEBHOOK_DOMAIN) {
+  const server = http.createServer((req, res) => {
+    let body = '';
+
+    if (req.url === '/webhook' && req.method === 'POST') {
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        try {
+          const update = JSON.parse(body);
+          bot.handleUpdate(update).catch(console.error);
+        } catch {
+          // ignore invalid JSON
+        }
+      });
+    }
+
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('ok');
+  });
+
+  server.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+
+    bot.telegram.setWebhook(`${WEBHOOK_DOMAIN}/webhook`).then(() => {
+      console.log('Webhook configured');
+    }).catch(console.error);
+  });
+
+  process.once('SIGINT', () => {
+    bot.stop('SIGINT');
+    server.close();
+  });
+  process.once('SIGTERM', () => {
+    bot.stop('SIGTERM');
+    server.close();
+  });
+} else {
+  bot.telegram.deleteWebhook().then(() => {
     bot.launch();
     console.log('Bot started via long polling');
-  }
-})().catch(console.error);
+  });
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+  process.once('SIGINT', () => bot.stop('SIGINT'));
+  process.once('SIGTERM', () => bot.stop('SIGTERM'));
+}
