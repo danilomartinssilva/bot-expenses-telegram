@@ -399,8 +399,25 @@ bot.catch((error: unknown) => {
   console.error('Bot error:', error);
 });
 
-bot.launch();
-console.log('Telegram financial bot started.');
+const WEBHOOK_DOMAIN = process.env.RENDER_EXTERNAL_URL || process.env.WEBHOOK_DOMAIN;
+const PORT = Number(process.env.PORT) || 10000;
+
+(async () => {
+  if (WEBHOOK_DOMAIN) {
+    const url = new URL(WEBHOOK_DOMAIN);
+    await bot.launch({
+      webhook: {
+        domain: url.hostname,
+        hookPath: '/webhook',
+        port: PORT,
+      },
+    });
+    console.log(`Bot started via webhook: ${WEBHOOK_DOMAIN}/webhook`);
+  } else {
+    bot.launch();
+    console.log('Bot started via long polling');
+  }
+})().catch(console.error);
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
