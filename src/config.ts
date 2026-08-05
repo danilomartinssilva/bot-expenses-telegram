@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import type { Responsible } from './types';
+import type { Responsible } from './domain/entities/Expense';
 
 dotenv.config();
 
