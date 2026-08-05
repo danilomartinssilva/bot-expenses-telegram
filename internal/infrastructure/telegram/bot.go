@@ -7,8 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	tb "gopkg.in/telebot.v3"
@@ -337,6 +339,10 @@ func (b *Bot) Start() {
 
 	if webhookDomain != "" {
 		b.startWebhookServer(webhookDomain, port)
+
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+		<-stop
 		return
 	}
 
