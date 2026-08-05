@@ -1,6 +1,22 @@
-FROM node:20-bookworm-slim
+FROM golang:1.24-bookworm AS build
 
 WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    gcc \
+    libc6-dev \
+    tesseract-ocr-dev \
+    libleptonica-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=1 go build -o /bot ./cmd/bot
+
+FROM debian:bookworm-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -9,12 +25,8 @@ RUN apt-get update \
     tesseract-ocr-por \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-RUN npm run build
+COPY --from=build /bot /usr/local/bin/bot
 
 EXPOSE ${PORT:-10000}
 
-CMD ["npm", "start"]
+CMD ["bot"]
