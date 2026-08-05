@@ -4,3 +4,5 @@ downloads/
 npm-debug.log*
 .DS_Store
 dist/
+boot-sheet-*.json
+bin/
