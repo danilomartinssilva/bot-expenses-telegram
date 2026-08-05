@@ -19,6 +19,5 @@ export const telegramBotToken = requireEnv('TELEGRAM_BOT_TOKEN');
 export const googleSheetId = requireEnv('GOOGLE_SHEET_ID');
 export const googleServiceAccountEmail = requireEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL');
 export { googlePrivateKey };
-export const redisUrl = process.env.REDIS_URL || undefined;
 export const configSheetName = 'Configurações';
 export const responsibleOptions: Responsible[] = ['Danilo Martins', 'Bruna'];
