@@ -398,13 +398,14 @@ func (b *Bot) startWebhookServer(domain string, port int) {
 	go func() {
 		time.Sleep(500 * time.Millisecond)
 
-		webhook := &tb.Webhook{Endpoint: &tb.WebhookEndpoint{PublicURL: domain}}
+		publicURL := strings.TrimRight(domain, "/") + "/webhook"
+		webhook := &tb.Webhook{Endpoint: &tb.WebhookEndpoint{PublicURL: publicURL}}
 		if err := b.bot.SetWebhook(webhook); err != nil {
 			log.Printf("set webhook: %v", err)
 			return
 		}
 
-		log.Printf("webhook configured to %s", domain)
+		log.Printf("webhook configured to %s", publicURL)
 	}()
 
 	log.Printf("server listening on port %d", port)
