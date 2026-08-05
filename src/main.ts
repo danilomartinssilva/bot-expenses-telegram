@@ -1,21 +1,15 @@
 import { Telegraf } from 'telegraf';
 import type { Context } from 'telegraf';
-import { redisUrl, telegramBotToken } from './config';
+import { telegramBotToken } from './config';
 import { MissingFieldsError } from './application/errors';
 import type { BotResponder } from './application/ports/BotResponder';
-import type { JobQueue } from './application/ports/JobQueue';
 import { GetMonthlyBalance } from './application/useCases/GetMonthlyBalance';
 import { RegisterExpense } from './application/useCases/RegisterExpense';
-import { SubmitImageForAnalysis } from './application/useCases/SubmitImageForAnalysis';
 import { parseEditedValue } from './domain/services/ExpenseParser';
 import type { Expense, TransactionType } from './domain/entities/Expense';
 import { TesseractOcrService } from './infrastructure/ocr/TesseractOcrService';
-import { BullMqJobQueue } from './infrastructure/queue/BullMqJobQueue';
-import { NoopJobQueue } from './infrastructure/queue/NoopJobQueue';
 import { InMemoryExpenseSession } from './infrastructure/session/InMemoryExpenseSession';
 import { GoogleSheetsExpenseRepository } from './infrastructure/sheets/GoogleSheetsExpenseRepository';
-import { ChatIdTelegramGateway } from './infrastructure/telegram/ChatIdTelegramGateway';
-import { CtxTelegramGateway } from './infrastructure/telegram/CtxTelegramGateway';
 import { TelegramFileDownloader } from './infrastructure/telegram/TelegramFileDownloader';
 import { TelegramResponder } from './infrastructure/telegram/TelegramResponder';
 import { startWebhookServer } from './infrastructure/telegram/WebhookServer';
@@ -30,15 +24,8 @@ const repository = new GoogleSheetsExpenseRepository();
 const registerExpense = new RegisterExpense(ocr, downloader, repository, sessionStore);
 const getMonthlyBalance = new GetMonthlyBalance(repository);
 
-const jobQueue: JobQueue = redisUrl ? new BullMqJobQueue(redisUrl) : new NoopJobQueue();
-const submitImage = new SubmitImageForAnalysis(jobQueue);
-
 function responderFor(ctx: Context): BotResponder {
-  return new TelegramResponder(new CtxTelegramGateway(ctx));
-}
-
-function chatResponderFor(chatId: number): BotResponder {
-  return new TelegramResponder(new ChatIdTelegramGateway(bot, chatId));
+  return new TelegramResponder(ctx);
 }
 
 function getLargestPhoto(photos: { file_id: string }[]) {
@@ -88,16 +75,14 @@ bot.on('photo', async (ctx) => {
     await responder.reply('Analisando a imagem...');
 
     const photo = getLargestPhoto(ctx.message.photo);
-    const chatId = ctx.message.chat.id;
-    const jobId = `${chatId}:${ctx.message.message_id}`;
+    await registerExpense.processImage(photo.file_id, ctx.from.id);
 
-    await submitImage.execute({
-      chatId,
-      userId: ctx.from.id,
-      fileId: photo.file_id,
-      jobId,
-    });
+    return responder.askResponsible();
   } catch (error) {
+    if (error instanceof MissingFieldsError) {
+      return responder.reply(error.message);
+    }
+
     console.error(error);
     return responder.reply('Não consegui processar essa imagem. Tente novamente com outro print.');
   }
@@ -280,22 +265,6 @@ bot.on('text', async (ctx) => {
 bot.catch((error: unknown) => {
   console.error('Bot error:', error);
 });
-
-jobQueue.subscribe(async (job) => {
-  const responder = chatResponderFor(job.chatId);
-
-  try {
-    await registerExpense.processImage(job.fileId, job.userId);
-    await responder.askResponsible();
-  } catch (error) {
-    if (error instanceof MissingFieldsError) {
-      await responder.reply(error.message);
-      return;
-    }
-
-    throw error;
-  }
-}).catch(console.error);
 
 const WEBHOOK_DOMAIN = process.env.RENDER_EXTERNAL_URL || process.env.WEBHOOK_DOMAIN;
 const PORT = Number(process.env.PORT) || 10000;
